@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotion Recognition</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Audio Emotion Recognition</h1>
+    <p class="subtitle">Upload an audio file and detect the speaker's emotion</p>
+
+    <div class="card">
+      <label for="audioFile" class="label">Choose audio file</label>
+      <input type="file" id="audioFile" accept="audio/*" />
+
+      <button id="predictBtn">Predict Emotion</button>
+
+      <div id="status" class="status"></div>
+
+      <div id="result" class="result hidden">
+        <h2>Prediction Result</h2>
+        <p><strong>Emotion:</strong> <span id="emotion"></span></p>
+        <p><strong>Confidence:</strong> <span id="confidence"></span></p>
+
+        <h3>Probabilities</h3>
+        <pre id="probabilities"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

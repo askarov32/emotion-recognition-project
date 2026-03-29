@@ -1,0 +1,27 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_SERVICE_URL: http://model_service:8001
+    volumes:
+      - ./backend/app:/app/app
+    depends_on:
+      - model_service
+
+  model_service:
+    build: ./model_service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./model_service/app:/app/app
