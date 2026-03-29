@@ -7,3 +7,4 @@ Thumbs.db
 model_service/saved_models/
 ml_training/data/
 ml_training/outputs/
+.idea
