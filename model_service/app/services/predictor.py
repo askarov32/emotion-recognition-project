@@ -9,7 +9,7 @@ import librosa
 from fastapi import UploadFile, HTTPException
 import traceback
 
-# ─── НАСТРОЙКИ ──────────────────────────────────────────────────────────
+# НАСТРОЙКИ
 _WEIGHTS_DIR = pathlib.Path(__file__).parents[2] / "weights"
 _MODEL_PATH = _WEIGHTS_DIR / "model.pt"
 _META_PATH = _WEIGHTS_DIR / "meta.json"
@@ -31,7 +31,7 @@ _device = "cuda" if torch.cuda.is_available() else "cpu"
 _model = None
 _meta = None
 
-# ─── АРХИТЕКТУРА (CNN + LSTM) ─────────────────────────────────────────
+# АРХИТЕКТУРА (CNN + LSTM)
 class EmotionModel(nn.Module):
     def __init__(self, n_mels: int, n_classes: int):
         super().__init__()
@@ -110,7 +110,6 @@ def _extract_features(audio_bytes: bytes, meta: dict, original_filename: str) ->
 
     import tempfile
     
-    # Берем оригинальное расширение (например .m4a или .mp3), чтобы библиотека не путалась
     ext = os.path.splitext(original_filename)[1] if original_filename else ".wav"
     if not ext:
         ext = ".wav"
@@ -122,7 +121,6 @@ def _extract_features(audio_bytes: bytes, meta: dict, original_filename: str) ->
     try:
         y, _ = librosa.load(tmp_path, sr=sr, duration=dur, mono=True)
     except Exception as e:
-        # Если librosa упала (например, нет ffmpeg для m4a), возвращаем чистый лог без падения всего сервера
         raise HTTPException(
             status_code=400, 
             detail=f"Не удалось обработать формат {ext}. Установите FFmpeg в систему или используйте формат .wav. Детали: {str(e)}"
@@ -156,8 +154,6 @@ async def run_inference(audio: UploadFile) -> dict:
     labels = meta["labels"]
     pred_idx = int(probs.argmax())
     
-    # Конвертация названий для контракта API: "Angry" -> "angry"
-    # Так как мы предсказываем 7 эмоций, мы вернем их все в нижнем регистре
     probabilities_dict = {label.lower(): float(p) for label, p in zip(labels, probs)}
     
     return {

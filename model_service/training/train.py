@@ -11,13 +11,13 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-# ─── НАСТРОЙКИ ──────────────────────────────────────────────────────────
+# НАСТРОЙКИ
 DATA_DIR = r"C:\Users\Telmurius\python_projects\emotion-recognition-project\data\Emotions"
 WEIGHTS_DIR = r"C:\Users\Telmurius\python_projects\emotion-recognition-project\model_service\weights"
-EPOCHS = 40           # Увеличено для лучшей сходимости
+EPOCHS = 40
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-3
-N_SPLITS = 5          # 5-fold cross-validation
+N_SPLITS = 5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 META = {
@@ -35,7 +35,7 @@ META = {
 
 os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
-# ─── АРХИТЕКТУРА (CNN + LSTM) ─────────────────────────────────────────
+# АРХИТЕКТУРА (CNN + LSTM)
 class EmotionModel(nn.Module):
     def __init__(self, n_mels: int, n_classes: int):
         super().__init__()
@@ -90,7 +90,7 @@ class EmotionModel(nn.Module):
         
         return self.classifier(x)
 
-# ─── ДАТАСЕТ И ЗАГРУЗКА ─────────────────────────────────────────────
+# ДАТАСЕТ И ЗАГРУЗКА
 class EmotionDataset(Dataset):
     def __init__(self, file_paths, labels):
         self.file_paths = file_paths
@@ -100,7 +100,6 @@ class EmotionDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        # Быстро загружаем УЖЕ готовый тензор с диска (весит копейки, грузится за миллисекунды)
         feat = torch.load(self.file_paths[idx], map_location="cpu", weights_only=True)
         return feat, self.labels[idx]
 
@@ -143,7 +142,7 @@ def load_data():
 
     return file_paths, labels
 
-# ─── ГЛАВНАЙ ЦИКЛ ОБУЧЕНИЯ (CROSS-VALIDATION) ───────────────────────
+# ГЛАВНАЙ ЦИКЛ ОБУЧЕНИЯ (CROSS-VALIDATION)
 def main():
     print(f"[INFO] Устройство для обучения: {DEVICE}")
     file_paths, labels = load_data()
@@ -154,13 +153,10 @@ def main():
     fold_results = []
     best_overall_acc = 0.0
     
-    # K-Fold нуждается в обычных числах для стратификации
     labels_np = [lbl.item() for lbl in labels]
     
     # K-Fold Cross Validation Loop
-    for fold, (train_idx, val_idx) in enumerate(skf.split(file_paths, labels_np)):
-        print(f"\n========== FOLD {fold + 1} / {N_SPLITS} ==========")
-        
+    for fold, (train_idx, val_idx) in enumerate(skf.split(file_paths, labels_np)):    
         train_features = [file_paths[i] for i in train_idx]
         train_labels = [labels[i] for i in train_idx]
         val_features = [file_paths[i] for i in val_idx]
@@ -224,7 +220,6 @@ def main():
         fold_results.append(fold_best_acc)
         print(f"Best Acc in Fold {fold + 1}: {fold_best_acc:.4f}")
 
-    print("\n========== ИТОГИ CROSS-VALIDATION ==========")
     print(f"Результаты по каждому фолду: {fold_results}")
     print(f"Средняя точность: {np.mean(fold_results):.4f} ± {np.std(fold_results):.4f}")
     print(f"Максимальная точность: {best_overall_acc:.4f}")
