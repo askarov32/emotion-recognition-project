@@ -2,3 +2,8 @@ fastapi
 uvicorn[standard]
 python-multipart
 pydantic
+torch
+librosa
+numpy
+scikit-learn
+soundfile

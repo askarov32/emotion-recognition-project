@@ -1,0 +1,26 @@
+{
+    "labels": [
+        "Angry",
+        "Disgusted",
+        "Fearful",
+        "Happy",
+        "Neutral",
+        "Sad",
+        "Suprised"
+    ],
+    "label2idx": {
+        "Angry": 0,
+        "Disgusted": 1,
+        "Fearful": 2,
+        "Happy": 3,
+        "Neutral": 4,
+        "Sad": 5,
+        "Suprised": 6
+    },
+    "n_mels": 64,
+    "max_len": 95,
+    "sample_rate": 16000,
+    "duration": 3.0,
+    "model_version": "cnn_lstm_cv_v1",
+    "best_cv_accuracy": 0.7375
+}
