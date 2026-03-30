@@ -29,11 +29,13 @@ predictBtn.addEventListener("click", async () => {
       body: formData,
     });
 
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
+    const data = await response.json().catch(() => null);
 
-    const data = await response.json();
+    if (!response.ok) {
+      const message =
+        data?.detail || `Request failed with status ${response.status}`;
+      throw new Error(message);
+    }
 
     emotionEl.textContent = data.predicted_emotion;
     confidenceEl.textContent = `${(data.confidence * 100).toFixed(2)}%`;
@@ -43,7 +45,7 @@ predictBtn.addEventListener("click", async () => {
     resultEl.classList.remove("hidden");
   } catch (error) {
     console.error(error);
-    statusEl.textContent = "Prediction failed. Check backend/model service.";
+    statusEl.textContent = error.message || "Prediction failed.";
     resultEl.classList.add("hidden");
   }
 });

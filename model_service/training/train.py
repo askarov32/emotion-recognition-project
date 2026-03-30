@@ -156,9 +156,7 @@ def main():
     labels_np = [lbl.item() for lbl in labels]
     
     # K-Fold Cross Validation Loop
-    for fold, (train_idx, val_idx) in enumerate(skf.split(file_paths, labels_np)):
-        print(f"\n========== FOLD {fold + 1} / {N_SPLITS} ==========")
-        
+    for fold, (train_idx, val_idx) in enumerate(skf.split(file_paths, labels_np)):    
         train_features = [file_paths[i] for i in train_idx]
         train_labels = [labels[i] for i in train_idx]
         val_features = [file_paths[i] for i in val_idx]
@@ -222,7 +220,6 @@ def main():
         fold_results.append(fold_best_acc)
         print(f"Best Acc in Fold {fold + 1}: {fold_best_acc:.4f}")
 
-    print("\n========== ИТОГИ CROSS-VALIDATION ==========")
     print(f"Результаты по каждому фолду: {fold_results}")
     print(f"Средняя точность: {np.mean(fold_results):.4f} ± {np.std(fold_results):.4f}")
     print(f"Максимальная точность: {best_overall_acc:.4f}")
