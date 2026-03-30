@@ -1,58 +1,92 @@
-const predictBtn = document.getElementById("predictBtn");
-const audioFileInput = document.getElementById("audioFile");
-const statusEl = document.getElementById("status");
-const resultEl = document.getElementById("result");
-const emotionEl = document.getElementById("emotion");
-const emotionTitleEl = document.getElementById("emotionTitle");
-const confidenceEl = document.getElementById("confidence");
-const probabilitiesListEl = document.getElementById("probabilitiesList");
+var predictBtn = document.getElementById("predictBtn");
+var audioFileInput = document.getElementById("audioFile");
+var statusEl = document.getElementById("status");
+var resultEl = document.getElementById("result");
+var emotionEl = document.getElementById("emotion");
+var emotionTitleEl = document.getElementById("emotionTitle");
+var confidenceEl = document.getElementById("confidence");
+var probabilitiesListEl = document.getElementById("probabilitiesList");
 
-const BACKEND_URL = "http://localhost:8000/api/predict";
+var BACKEND_URL = "http://localhost:8000/api/predict";
 
 function formatPercent(value) {
-  return `${(value * 100).toFixed(2)}%`;
+  return (value * 100).toFixed(2) + "%";
+}
+
+function safeText(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value);
+}
+
+function clearProbabilities() {
+  probabilitiesListEl.innerHTML = "";
 }
 
 function renderProbabilities(probabilities) {
-  probabilitiesListEl.innerHTML = "";
+  clearProbabilities();
 
-  const items = Object.entries(probabilities).sort((a, b) => b[1] - a[1]);
+  var items = [];
+  var key;
 
-  items.forEach(([label, value]) => {
-    const item = document.createElement("div");
+  for (key in probabilities) {
+    if (Object.prototype.hasOwnProperty.call(probabilities, key)) {
+      items.push([key, probabilities[key]]);
+    }
+  }
+
+  items.sort(function (a, b) {
+    return b[1] - a[1];
+  });
+
+  for (var i = 0; i < items.length; i++) {
+    var label = items[i][0];
+    var value = items[i][1];
+
+    var item = document.createElement("div");
     item.className = "probability-item";
 
-    const top = document.createElement("div");
+    var top = document.createElement("div");
     top.className = "probability-top";
 
-    const name = document.createElement("span");
+    var name = document.createElement("span");
     name.className = "probability-label";
-    name.textContent = label;
+    name.textContent = safeText(label);
 
-    const percent = document.createElement("span");
+    var percent = document.createElement("span");
     percent.className = "probability-value";
     percent.textContent = formatPercent(value);
 
     top.appendChild(name);
     top.appendChild(percent);
 
-    const track = document.createElement("div");
+    var track = document.createElement("div");
     track.className = "progress-track";
 
-    const bar = document.createElement("div");
+    var bar = document.createElement("div");
     bar.className = "progress-bar";
-    bar.style.width = `${Math.max(0, Math.min(value * 100, 100))}%`;
+
+    var widthValue = value * 100;
+    if (widthValue < 0) {
+      widthValue = 0;
+    }
+    if (widthValue > 100) {
+      widthValue = 100;
+    }
+
+    bar.style.width = widthValue + "%";
 
     track.appendChild(bar);
     item.appendChild(top);
     item.appendChild(track);
 
     probabilitiesListEl.appendChild(item);
-  });
+  }
 }
 
-predictBtn.addEventListener("click", async () => {
-  const file = audioFileInput.files[0];
+predictBtn.addEventListener("click", function () {
+  var file = audioFileInput.files[0];
 
   if (!file) {
     statusEl.textContent = "Please choose an audio file first.";
@@ -60,40 +94,69 @@ predictBtn.addEventListener("click", async () => {
     return;
   }
 
-  const formData = new FormData();
+  var formData = new FormData();
   formData.append("audio", file);
 
   statusEl.textContent = "Uploading and predicting...";
   predictBtn.disabled = true;
   resultEl.classList.add("hidden");
 
-  try {
-    const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      body: formData,
+  fetch(BACKEND_URL, {
+    method: "POST",
+    body: formData
+  })
+    .then(function (response) {
+      return response
+        .json()
+        .catch(function () {
+          return null;
+        })
+        .then(function (data) {
+          return {
+            ok: response.ok,
+            status: response.status,
+            data: data
+          };
+        });
+    })
+    .then(function (result) {
+      if (!result.ok) {
+        var message = "Request failed with status " + result.status;
+
+        if (
+          result.data &&
+          result.data.detail !== undefined &&
+          result.data.detail !== null
+        ) {
+          message = String(result.data.detail);
+        }
+
+        throw new Error(message);
+      }
+
+      var data = result.data || {};
+
+      emotionEl.textContent = safeText(data.predicted_emotion);
+      emotionTitleEl.textContent = safeText(data.predicted_emotion);
+      confidenceEl.textContent = formatPercent(Number(data.confidence || 0));
+
+      renderProbabilities(data.probabilities || {});
+
+      statusEl.textContent = "Prediction completed.";
+      resultEl.classList.remove("hidden");
+    })
+    .catch(function (error) {
+      console.error(error);
+
+      if (error && error.message) {
+        statusEl.textContent = error.message;
+      } else {
+        statusEl.textContent = "Prediction failed.";
+      }
+
+      resultEl.classList.add("hidden");
+    })
+    .finally(function () {
+      predictBtn.disabled = false;
     });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      const message =
-        data?.detail || `Request failed with status ${response.status}`;
-      throw new Error(message);
-    }
-
-    emotionEl.textContent = data.predicted_emotion;
-    emotionTitleEl.textContent = data.predicted_emotion;
-    confidenceEl.textContent = formatPercent(data.confidence);
-
-    renderProbabilities(data.probabilities);
-
-    statusEl.textContent = "Prediction completed.";
-    resultEl.classList.remove("hidden");
-  } catch (error) {
-    console.error(error);
-    statusEl.textContent = error.message || "Prediction failed.";
-    resultEl.classList.add("hidden");
-  } finally {
-    predictBtn.disabled = false;
-  }
 });
