@@ -11,6 +11,22 @@ const clearFileBtn = document.getElementById("clearFileBtn");
 const fileCard = document.getElementById("fileCard");
 const fileNameEl = document.getElementById("fileName");
 const fileInfoEl = document.getElementById("fileInfo");
+const fileSelectedBadge = document.getElementById("fileSelectedBadge");
+
+const startRecordingBtn = document.getElementById("startRecordingBtn");
+const stopRecordingBtn = document.getElementById("stopRecordingBtn");
+const clearRecordingBtn = document.getElementById("clearRecordingBtn");
+const recordingTimer = document.getElementById("recordingTimer");
+const recordingStateText = document.getElementById("recordingStateText");
+const recordingHint = document.getElementById("recordingHint");
+const recordingPulse = document.getElementById("recordingPulse");
+const recordingPreviewCard = document.getElementById("recordingPreviewCard");
+const recordingPreview = document.getElementById("recordingPreview");
+const recordingFileName = document.getElementById("recordingFileName");
+const recordingMeta = document.getElementById("recordingMeta");
+const recordingSelectedBadge = document.getElementById("recordingSelectedBadge");
+
+const sourceSummaryValue = document.getElementById("sourceSummaryValue");
 
 const statusCard = document.getElementById("statusCard");
 const statusIcon = document.getElementById("statusIcon");
@@ -79,8 +95,22 @@ const emotionMeta = {
   }
 };
 
-let currentFile = null;
+let uploadedFile = null;
+let recordedFile = null;
+let activeSource = null; // "file" | "recording" | null
 let isLoading = false;
+let isRecording = false;
+
+let audioContext = null;
+let mediaStream = null;
+let sourceNode = null;
+let processorNode = null;
+let gainNode = null;
+let pcmChunks = [];
+let recordingStartMs = 0;
+let recordingInterval = null;
+let recordedSampleRate = 44100;
+let currentRecordingUrl = null;
 
 function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
@@ -132,10 +162,6 @@ function normalizeProbability(value) {
   return clamp(numeric, 0, 1);
 }
 
-function formatPercent(value) {
-  return `${(normalizeProbability(value) * 100).toFixed(2)}%`;
-}
-
 function toTitleCase(value) {
   return String(value)
     .trim()
@@ -151,10 +177,7 @@ function normalizeEmotionKey(value) {
     .replace(/\s+/g, "_")
     .replace(/-/g, "_");
 
-  if (emotionMeta[normalized]) {
-    return normalized;
-  }
-
+  if (emotionMeta[normalized]) return normalized;
   if (normalized.includes("happy")) return "happy";
   if (normalized.includes("sad")) return "sad";
   if (normalized.includes("angry")) return "angry";
@@ -167,9 +190,7 @@ function normalizeEmotionKey(value) {
 }
 
 function isValidWavFile(file) {
-  if (!file) {
-    return false;
-  }
+  if (!file) return false;
 
   const name = String(file.name || "").toLowerCase();
   const type = String(file.type || "").toLowerCase();
@@ -180,6 +201,21 @@ function isValidWavFile(file) {
 function getStatusIcon(type) {
   if (type === "uploading" || type === "processing") {
     return `<span class="status-spinner" aria-hidden="true"></span>`;
+  }
+
+  if (type === "recording") {
+    return `
+      <svg viewBox="0 0 24 24" class="icon">
+        <path
+          d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm0 0v4m-4-1h8M19 11a7 7 0 0 1-14 0"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    `;
   }
 
   if (type === "success") {
@@ -243,11 +279,25 @@ function hideError() {
   errorCard.classList.add("hidden");
 }
 
+function getActiveAudioFile() {
+  if (activeSource === "file" && uploadedFile) return uploadedFile;
+  if (activeSource === "recording" && recordedFile) return recordedFile;
+  return uploadedFile || recordedFile || null;
+}
+
+function updateAnalyzeButton() {
+  predictBtn.disabled = isLoading || isRecording || !getActiveAudioFile();
+}
+
 function setLoadingState(loading) {
   isLoading = loading;
-  predictBtn.disabled = loading || !currentFile;
+  updateAnalyzeButton();
   predictBtnSpinner.classList.toggle("hidden", !loading);
   predictBtnText.textContent = loading ? "Analyzing..." : "Analyze emotion";
+
+  startRecordingBtn.disabled = loading || isRecording;
+  stopRecordingBtn.disabled = loading || !isRecording;
+  audioFileInput.disabled = loading || isRecording;
 }
 
 function showSkeleton() {
@@ -279,32 +329,102 @@ function resetResults() {
   emotionDescription.textContent = "Balanced tone with low emotional intensity.";
 }
 
-function updateFileUI(file) {
-  const hasFile = Boolean(file);
+function updateSourceSummary() {
+  if (activeSource === "file" && uploadedFile) {
+    sourceSummaryValue.textContent = `Uploaded file • ${uploadedFile.name}`;
+    fileSelectedBadge.classList.remove("hidden");
+    recordingSelectedBadge.classList.add("hidden");
+    return;
+  }
+
+  if (activeSource === "recording" && recordedFile) {
+    sourceSummaryValue.textContent = `Microphone recording • ${recordedFile.name}`;
+    recordingSelectedBadge.classList.remove("hidden");
+    fileSelectedBadge.classList.add("hidden");
+    return;
+  }
+
+  sourceSummaryValue.textContent = "None selected";
+  fileSelectedBadge.classList.add("hidden");
+  recordingSelectedBadge.classList.add("hidden");
+}
+
+function updateFileUI() {
+  const hasFile = Boolean(uploadedFile);
 
   fileCard.classList.toggle("hidden", !hasFile);
   dropzone.classList.toggle("has-file", hasFile);
-  predictBtn.disabled = !hasFile || isLoading;
 
   if (!hasFile) {
     fileNameEl.textContent = "No file selected";
     fileInfoEl.textContent = "WAV audio";
+    updateSourceSummary();
+    updateAnalyzeButton();
     return;
   }
 
-  fileNameEl.textContent = file.name || "audio.wav";
-  fileInfoEl.textContent = `${bytesToSize(file.size)} • WAV audio`;
+  fileNameEl.textContent = uploadedFile.name || "audio.wav";
+  fileInfoEl.textContent = `${bytesToSize(uploadedFile.size)} • WAV audio`;
+  updateSourceSummary();
+  updateAnalyzeButton();
+}
+
+function updateRecordingUI() {
+  const hasRecording = Boolean(recordedFile);
+
+  recordingPreviewCard.classList.toggle("hidden", !hasRecording);
+
+  if (!hasRecording) {
+    recordingFileName.textContent = "recording.wav";
+    recordingMeta.textContent = "Recorded audio";
+    recordingPreview.removeAttribute("src");
+    recordingPreview.load();
+    updateSourceSummary();
+    updateAnalyzeButton();
+    return;
+  }
+
+  recordingFileName.textContent = recordedFile.name;
+  recordingMeta.textContent = `${bytesToSize(recordedFile.size)} • WAV recording`;
+  updateSourceSummary();
+  updateAnalyzeButton();
 }
 
 function clearFile() {
-  currentFile = null;
+  uploadedFile = null;
+  if (activeSource === "file") activeSource = recordedFile ? "recording" : null;
   audioFileInput.value = "";
-  updateFileUI(null);
-  hideError();
-  resetResults();
-  hideSkeleton();
-  showEmptyState();
-  setStatus("idle", "Ready", "Select a WAV file to begin.");
+  updateFileUI();
+
+  if (!recordedFile) {
+    resetResults();
+    hideSkeleton();
+    showEmptyState();
+    setStatus("idle", "Ready", "Select a WAV file or record audio to begin.");
+  } else {
+    setStatus("idle", "Recording ready", "Your microphone recording is selected.");
+  }
+}
+
+function clearRecording() {
+  recordedFile = null;
+  if (currentRecordingUrl) {
+    URL.revokeObjectURL(currentRecordingUrl);
+    currentRecordingUrl = null;
+  }
+
+  if (activeSource === "recording") activeSource = uploadedFile ? "file" : null;
+
+  updateRecordingUI();
+
+  if (!uploadedFile) {
+    resetResults();
+    hideSkeleton();
+    showEmptyState();
+    setStatus("idle", "Ready", "Select a WAV file or record audio to begin.");
+  } else {
+    setStatus("idle", "File ready", `${uploadedFile.name} is selected for analysis.`);
+  }
 }
 
 function handleSelectedFile(file) {
@@ -322,9 +442,247 @@ function handleSelectedFile(file) {
     return;
   }
 
-  currentFile = file;
-  updateFileUI(file);
-  setStatus("idle", "File ready", `${file.name} is ready for analysis.`);
+  uploadedFile = file;
+  activeSource = "file";
+  updateFileUI();
+  setStatus("idle", "File ready", `${file.name} is selected for analysis.`);
+}
+
+function getTimestampFileName() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+
+  const fileName = `recording-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.wav`;
+  return fileName;
+}
+
+function formatTimer(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function startTimer() {
+  recordingStartMs = Date.now();
+  recordingTimer.textContent = "00:00";
+  recordingInterval = window.setInterval(() => {
+    recordingTimer.textContent = formatTimer(Date.now() - recordingStartMs);
+  }, 200);
+}
+
+function stopTimer() {
+  if (recordingInterval) {
+    window.clearInterval(recordingInterval);
+    recordingInterval = null;
+  }
+}
+
+function setRecordingState(recording) {
+  isRecording = recording;
+
+  recordingPulse.classList.toggle("hidden", !recording);
+  recordingStateText.textContent = recording ? "Recording..." : "Not recording";
+
+  startRecordingBtn.disabled = recording || isLoading;
+  stopRecordingBtn.disabled = !recording || isLoading;
+  audioFileInput.disabled = recording || isLoading;
+  updateAnalyzeButton();
+}
+
+function flattenFloat32Arrays(chunks) {
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Float32Array(totalLength);
+
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result;
+}
+
+function encodeWav(samples, sampleRate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i += 1) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i += 1) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+async function cleanupRecordingNodes() {
+  if (processorNode) {
+    processorNode.disconnect();
+    processorNode.onaudioprocess = null;
+    processorNode = null;
+  }
+
+  if (sourceNode) {
+    sourceNode.disconnect();
+    sourceNode = null;
+  }
+
+  if (gainNode) {
+    gainNode.disconnect();
+    gainNode = null;
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+  }
+
+  if (audioContext) {
+    try {
+      await audioContext.close();
+    } catch (error) {
+      // noop
+    }
+    audioContext = null;
+  }
+}
+
+function buildReadableMicError(error) {
+  const name = error && error.name ? error.name : "";
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Microphone access was denied. Allow microphone permission and try again.";
+  }
+
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone was found on this device.";
+  }
+
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The microphone is already in use by another application.";
+  }
+
+  return "Could not start microphone recording. Use localhost or HTTPS and check browser permissions.";
+}
+
+async function startRecording() {
+  if (isRecording || isLoading) return;
+
+  hideError();
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setStatus("error", "Microphone unavailable", "This browser does not support microphone recording.");
+    showError("Microphone recording is not supported in this browser.");
+    return;
+  }
+
+  try {
+    pcmChunks = [];
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioContextClass();
+    recordedSampleRate = audioContext.sampleRate;
+
+    sourceNode = audioContext.createMediaStreamSource(mediaStream);
+    processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+    gainNode = audioContext.createGain();
+    gainNode.gain.value = 0;
+
+    processorNode.onaudioprocess = (event) => {
+      if (!isRecording) return;
+
+      const input = event.inputBuffer.getChannelData(0);
+      pcmChunks.push(new Float32Array(input));
+    };
+
+    sourceNode.connect(processorNode);
+    processorNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    setRecordingState(true);
+    startTimer();
+    recordingHint.textContent = "Recording from microphone. Speak clearly, then press Stop.";
+    setStatus("recording", "Recording", "Microphone recording is in progress.");
+  } catch (error) {
+    await cleanupRecordingNodes();
+    setRecordingState(false);
+    stopTimer();
+    recordingTimer.textContent = "00:00";
+
+    const readableError = buildReadableMicError(error);
+    setStatus("error", "Recording failed", readableError);
+    showError(readableError);
+  }
+}
+
+async function stopRecording() {
+  if (!isRecording) return;
+
+  setRecordingState(false);
+  stopTimer();
+
+  try {
+    const samples = flattenFloat32Arrays(pcmChunks);
+    const wavBlob = encodeWav(samples, recordedSampleRate);
+    const fileName = getTimestampFileName();
+
+    recordedFile = new File([wavBlob], fileName, {
+      type: "audio/wav",
+      lastModified: Date.now()
+    });
+
+    activeSource = "recording";
+
+    if (currentRecordingUrl) {
+      URL.revokeObjectURL(currentRecordingUrl);
+    }
+
+    currentRecordingUrl = URL.createObjectURL(wavBlob);
+    recordingPreview.src = currentRecordingUrl;
+    recordingPreview.load();
+
+    updateRecordingUI();
+    setStatus("idle", "Recording ready", `${recordedFile.name} is selected for analysis.`);
+    recordingHint.textContent = "Preview your recording below or analyze it directly.";
+  } catch (error) {
+    recordedFile = null;
+    updateRecordingUI();
+
+    setStatus("error", "Recording failed", "Could not finalize the recording.");
+    showError("Could not convert the microphone input to WAV.");
+  } finally {
+    pcmChunks = [];
+    await cleanupRecordingNodes();
+  }
 }
 
 function parseReadableError(error, responsePayload, statusCode) {
@@ -337,11 +695,11 @@ function parseReadableError(error, responsePayload, statusCode) {
   }
 
   if (statusCode === 413) {
-    return "The audio file is too large. Try a smaller WAV file.";
+    return "The audio file is too large. Try a shorter recording or a smaller WAV file.";
   }
 
   if (statusCode === 415) {
-    return "Unsupported file type. Please upload a WAV file.";
+    return "Unsupported file type. Please upload or record WAV audio.";
   }
 
   if (statusCode >= 500) {
@@ -446,19 +804,19 @@ function renderProbabilities(probabilities) {
 }
 
 async function analyzeAudio() {
-  if (!currentFile || isLoading) {
-    return;
-  }
+  const activeFile = getActiveAudioFile();
+
+  if (!activeFile || isLoading || isRecording) return;
 
   hideError();
   resultPanel.classList.add("hidden");
   showSkeleton();
 
   setLoadingState(true);
-  setStatus("uploading", "Uploading", "Sending your audio file to the backend.");
+  setStatus("uploading", "Uploading", "Sending your audio to the backend.");
 
   const formData = new FormData();
-  formData.append("audio", currentFile);
+  formData.append("audio", activeFile);
 
   let response;
   let data = null;
@@ -493,11 +851,7 @@ async function analyzeAudio() {
     renderHeroResult(predictedEmotion, confidence);
     renderProbabilities(probabilities);
 
-    setStatus(
-      "success",
-      "Success",
-      `Prediction completed for ${currentFile.name}.`
-    );
+    setStatus("success", "Success", `Prediction completed for ${activeFile.name}.`);
   } catch (error) {
     const readableError = parseReadableError(error, data, response ? response.status : 0);
 
@@ -513,9 +867,7 @@ async function analyzeAudio() {
 }
 
 function onDropzoneClick() {
-  if (isLoading) {
-    return;
-  }
+  if (isLoading || isRecording) return;
   audioFileInput.click();
 }
 
@@ -533,9 +885,7 @@ function onFileInputChange(event) {
 
 function onDragOver(event) {
   event.preventDefault();
-  if (isLoading) {
-    return;
-  }
+  if (isLoading || isRecording) return;
   dropzone.classList.add("drag-over");
 }
 
@@ -550,9 +900,7 @@ function onDrop(event) {
   event.preventDefault();
   dropzone.classList.remove("drag-over");
 
-  if (isLoading) {
-    return;
-  }
+  if (isLoading || isRecording) return;
 
   const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]
     ? event.dataTransfer.files[0]
@@ -572,6 +920,20 @@ function bindEvents() {
 
   audioFileInput.addEventListener("change", onFileInputChange);
   clearFileBtn.addEventListener("click", clearFile);
+
+  startRecordingBtn.addEventListener("click", startRecording);
+  stopRecordingBtn.addEventListener("click", stopRecording);
+  clearRecordingBtn.addEventListener("click", clearRecording);
+
+  recordingPreview.addEventListener("play", () => {
+    if (recordedFile) {
+      activeSource = "recording";
+      updateRecordingUI();
+      updateFileUI();
+      setStatus("idle", "Recording ready", `${recordedFile.name} is selected for analysis.`);
+    }
+  });
+
   predictBtn.addEventListener("click", analyzeAudio);
 }
 
@@ -579,10 +941,20 @@ function init() {
   initTheme();
   bindEvents();
   resetResults();
-  updateFileUI(null);
+  updateFileUI();
+  updateRecordingUI();
   setLoadingState(false);
-  setStatus("idle", "Ready", "Select a WAV file to begin.");
+  setRecordingState(false);
+  recordingTimer.textContent = "00:00";
+  recordingHint.textContent = "Browser microphone access is required. Recording works on localhost or HTTPS.";
+  setStatus("idle", "Ready", "Select a WAV file or record audio to begin.");
   showEmptyState();
 }
+
+window.addEventListener("beforeunload", () => {
+  if (currentRecordingUrl) {
+    URL.revokeObjectURL(currentRecordingUrl);
+  }
+});
 
 init();

@@ -6,7 +6,7 @@
   <title>EchoSense AI</title>
   <meta
     name="description"
-    content="Upload a WAV file and detect the speaker emotion with a clean AI-style interface."
+    content="Upload or record audio and detect speaker emotion with a clean AI-style interface."
   />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -76,7 +76,7 @@
       <section class="hero">
         <div class="hero-copy">
           <span class="eyebrow">Speech emotion recognition</span>
-          <h2 class="hero-title">Upload a WAV file and get an emotion prediction instantly.</h2>
+          <h2 class="hero-title">Upload a WAV file or record from your microphone.</h2>
           <p class="hero-text">
             EchoSense AI uses a powerful convolutional neural network to analyze the emotional tone of
             your audio. Whether it's happiness, sadness, anger, or neutrality, get accurate insights
@@ -88,65 +88,192 @@
       <section class="panel upload-panel">
         <div class="panel-header">
           <div>
-            <h3 class="panel-title">Upload audio</h3>
-            <p class="panel-subtitle">Only .wav files are supported.</p>
+            <h3 class="panel-title">Audio input</h3>
+            <p class="panel-subtitle">Choose a WAV file or record directly in the browser.</p>
           </div>
-          <span class="panel-chip">Frontend only</span>
+          <span class="panel-chip">AI frontend</span>
         </div>
 
-        <div
-          id="dropzone"
-          class="dropzone"
-          tabindex="0"
-          role="button"
-          aria-label="Upload WAV file by clicking or dragging and dropping"
-        >
-          <input id="audioFile" class="sr-only" type="file" accept=".wav,audio/wav" />
-          <div class="dropzone-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M12 16V7M12 7l-3.5 3.5M12 7l3.5 3.5M6.5 16.5A3.5 3.5 0 0 1 7 9.54a5 5 0 0 1 9.72 1.18A3.5 3.5 0 1 1 17.5 17H16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+        <div class="input-methods">
+          <div class="method-card">
+            <div class="method-header">
+              <div class="method-header-left">
+                <div class="method-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="icon">
+                    <path
+                      d="M12 16V7M12 7l-3.5 3.5M12 7l3.5 3.5M6.5 16.5A3.5 3.5 0 0 1 7 9.54a5 5 0 0 1 9.72 1.18A3.5 3.5 0 1 1 17.5 17H16"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="method-title">Upload file</h4>
+                  <p class="method-subtitle">Drag and drop or browse a .wav file</p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="dropzone"
+              class="dropzone"
+              tabindex="0"
+              role="button"
+              aria-label="Upload WAV file by clicking or dragging and dropping"
+            >
+              <input id="audioFile" class="sr-only" type="file" accept=".wav,audio/wav" />
+
+              <div class="dropzone-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="icon">
+                  <path
+                    d="M12 16V7M12 7l-3.5 3.5M12 7l3.5 3.5M6.5 16.5A3.5 3.5 0 0 1 7 9.54a5 5 0 0 1 9.72 1.18A3.5 3.5 0 1 1 17.5 17H16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+
+              <div class="dropzone-copy">
+                <p class="dropzone-title">Drag and drop your WAV file here</p>
+                <p class="dropzone-text">
+                  or <span class="dropzone-link">browse from your device</span>
+                </p>
+              </div>
+            </div>
+
+            <div id="fileCard" class="file-card hidden" aria-live="polite">
+              <div class="file-card-left">
+                <div class="file-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="icon">
+                    <path
+                      d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-4ZM9 13v-2M12 15V9M15 12v0"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+
+                <div class="file-meta">
+                  <div class="file-title-row">
+                    <p id="fileName" class="file-name">No file selected</p>
+                    <span id="fileSelectedBadge" class="selected-badge hidden">Selected</span>
+                  </div>
+                  <p id="fileInfo" class="file-info">WAV audio</p>
+                </div>
+              </div>
+
+              <button id="clearFileBtn" class="ghost-button" type="button">
+                Remove
+              </button>
+            </div>
           </div>
 
-          <div class="dropzone-copy">
-            <p class="dropzone-title">Drag and drop your WAV file here</p>
-            <p class="dropzone-text">
-              or <span class="dropzone-link">browse from your device</span>
-            </p>
+          <div class="method-divider" aria-hidden="true">
+            <span>or</span>
+          </div>
+
+          <div class="method-card">
+            <div class="method-header">
+              <div class="method-header-left">
+                <div class="method-icon record-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="icon">
+                    <path
+                      d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm0 0v4m-4-1h8M19 11a7 7 0 0 1-14 0"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="method-title">Microphone input</h4>
+                  <p class="method-subtitle">Record audio and send it as WAV</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="record-card">
+              <div class="record-status-line">
+                <div class="record-indicator-wrap">
+                  <span id="recordingPulse" class="recording-pulse hidden"></span>
+                  <span id="recordingStateText" class="recording-state-text">Not recording</span>
+                </div>
+                <span id="recordingTimer" class="recording-timer">00:00</span>
+              </div>
+
+              <div class="record-actions">
+                <button id="startRecordingBtn" class="secondary-button" type="button">
+                  <span class="button-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" class="icon">
+                      <path
+                        d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm0 0v4m-4-1h8M19 11a7 7 0 0 1-14 0"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <span>Start recording</span>
+                </button>
+
+                <button id="stopRecordingBtn" class="danger-button" type="button" disabled>
+                  <span class="button-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" class="icon">
+                      <rect
+                        x="7"
+                        y="7"
+                        width="10"
+                        height="10"
+                        rx="2"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </span>
+                  <span>Stop</span>
+                </button>
+              </div>
+
+              <p id="recordingHint" class="recording-hint">
+                Browser microphone access is required. Recording works on localhost or HTTPS.
+              </p>
+
+              <div id="recordingPreviewCard" class="recording-preview-card hidden">
+                <div class="recording-preview-top">
+                  <div>
+                    <div class="file-title-row">
+                      <p id="recordingFileName" class="file-name">recording.wav</p>
+                      <span id="recordingSelectedBadge" class="selected-badge hidden">Selected</span>
+                    </div>
+                    <p id="recordingMeta" class="file-info">Recorded audio</p>
+                  </div>
+
+                  <button id="clearRecordingBtn" class="ghost-button" type="button">
+                    Remove
+                  </button>
+                </div>
+
+                <audio id="recordingPreview" class="audio-preview" controls></audio>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div id="fileCard" class="file-card hidden" aria-live="polite">
-          <div class="file-card-left">
-            <div class="file-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="icon">
-                <path
-                  d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7l-4-4ZM9 13v-2M12 15V9M15 12v0"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
-
-            <div class="file-meta">
-              <p id="fileName" class="file-name">No file selected</p>
-              <p id="fileInfo" class="file-info">WAV audio</p>
-            </div>
-          </div>
-
-          <button id="clearFileBtn" class="ghost-button" type="button">
-            Remove
-          </button>
+        <div id="sourceSummary" class="source-summary">
+          <span class="source-summary-label">Current input</span>
+          <span id="sourceSummaryValue" class="source-summary-value">None selected</span>
         </div>
 
         <div class="actions">
@@ -172,7 +299,7 @@
 
           <div>
             <p id="statusTitle" class="status-title">Ready</p>
-            <p id="statusText" class="status-text">Select a WAV file to begin.</p>
+            <p id="statusText" class="status-text">Select a WAV file or record audio to begin.</p>
           </div>
         </div>
 
