@@ -25,3 +25,4 @@ services:
       - "8001:8001"
     volumes:
       - ./model_service/app:/app/app
+      - ./model_service/weights:/app/weights:ro
