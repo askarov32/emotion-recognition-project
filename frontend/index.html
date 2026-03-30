@@ -7,26 +7,53 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>Audio Emotion Recognition</h1>
-    <p class="subtitle">Upload an audio file and detect the speaker's emotion</p>
+  <div class="page">
+    <div class="container">
+      <header class="hero">
+        <h1>Audio Emotion Recognition</h1>
+        <p class="subtitle">
+          Upload an audio file and detect the speaker's emotion
+        </p>
+      </header>
 
-    <div class="card">
-      <label for="audioFile" class="label">Choose audio file</label>
-      <input type="file" id="audioFile" accept=".wav,audio/wav" />
+      <section class="card upload-card">
+        <h2 class="section-title">Upload Audio</h2>
 
-      <button id="predictBtn">Predict Emotion</button>
+        <label for="audioFile" class="file-label">Choose audio file</label>
+        <input type="file" id="audioFile" accept=".wav,audio/wav,audio/mpeg,.mp3,.m4a,audio/x-m4a" />
 
-      <div id="status" class="status"></div>
+        <div class="actions">
+          <button id="predictBtn">Predict Emotion</button>
+        </div>
 
-      <div id="result" class="result hidden">
-        <h2>Prediction Result</h2>
-        <p><strong>Emotion:</strong> <span id="emotion"></span></p>
-        <p><strong>Confidence:</strong> <span id="confidence"></span></p>
+        <div id="status" class="status"></div>
+      </section>
 
-        <h3>Probabilities</h3>
-        <pre id="probabilities"></pre>
-      </div>
+      <section id="result" class="card result-card hidden">
+        <div class="result-header">
+          <div>
+            <p class="result-label">Prediction Result</p>
+            <h2 id="emotionTitle" class="emotion-title">Sad</h2>
+          </div>
+
+          <div class="confidence-box">
+            <span class="confidence-caption">Confidence</span>
+            <span id="confidence" class="confidence-value">71.85%</span>
+          </div>
+        </div>
+
+        <div class="top-summary">
+          <div class="summary-item">
+            <span class="summary-key">Detected emotion</span>
+            <span id="emotion" class="summary-value emotion-badge">sad</span>
+          </div>
+        </div>
+
+        <div class="probabilities-section">
+          <h3>Probabilities</h3>
+          <div id="probabilitiesList" class="probabilities-list"></div>
+        </div>
+      </section>
     </div>
   </div>
 
