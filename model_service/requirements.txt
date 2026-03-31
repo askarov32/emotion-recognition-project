@@ -6,4 +6,6 @@ torch
 librosa
 numpy
 scikit-learn
-soundfile
+soundfile
+matplotlib
+seaborn

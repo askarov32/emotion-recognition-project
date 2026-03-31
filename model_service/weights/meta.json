@@ -22,5 +22,5 @@
     "sample_rate": 16000,
     "duration": 3.0,
     "model_version": "cnn_lstm_cv_v1",
-    "best_cv_accuracy": 0.7375
+    "best_cv_accuracy": 0.7296875
 }

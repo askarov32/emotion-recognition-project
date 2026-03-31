@@ -1,0 +1,16 @@
+Fold: 2, Epoch: 23
+Validation Accuracy: 0.7297
+
+              precision    recall  f1-score   support
+
+       Angry       0.75      0.85      0.79       434
+   Disgusted       0.62      0.72      0.67       372
+     Fearful       0.74      0.59      0.66       410
+       Happy       0.78      0.73      0.75       433
+     Neutral       0.75      0.74      0.74       359
+         Sad       0.70      0.70      0.70       433
+    Suprised       0.91      0.91      0.91       119
+
+    accuracy                           0.73      2560
+   macro avg       0.75      0.75      0.75      2560
+weighted avg       0.73      0.73      0.73      2560
