@@ -3,7 +3,6 @@ from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
 
-
 async def send_audio_to_model_service(audio: UploadFile) -> dict:
     content = await audio.read()
 

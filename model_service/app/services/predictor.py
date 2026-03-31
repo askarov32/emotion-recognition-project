@@ -123,7 +123,7 @@ def _extract_features(audio_bytes: bytes, meta: dict, original_filename: str) ->
     except Exception as e:
         raise HTTPException(
             status_code=400, 
-            detail=f"Не удалось обработать формат {ext}. Установите FFmpeg в систему или используйте формат .wav. Детали: {str(e)}"
+            detail=f"Не удалось обработать формат {ext}"
         )
     finally:
         os.unlink(tmp_path)
